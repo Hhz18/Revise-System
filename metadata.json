@@ -1,0 +1,5 @@
+{
+  "name": "纠错系统",
+  "description": "A hand-drawn style correction system for vocabulary, algorithms, and daily tasks, featuring Gemini-powered translation and Ebbinghaus forgetting curve tracking.",
+  "requestFramePermissions": []
+}
