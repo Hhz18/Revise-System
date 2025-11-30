@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { PaperButton } from '../components/ui/PaperButton';
 import { PaperCard } from '../components/ui/PaperCard';
 import { ImporterModal } from '../components/ImporterModal';
 import { VocabularyItem, SystemType } from '../types';
-import { Check, RotateCw, Archive } from 'lucide-react';
-import { translateWord } from '../services/geminiService';
+import { Check, RotateCw, Archive, Zap } from 'lucide-react';
+import { translateWord, translateBatch } from '../services/geminiService';
 import { getNextReviewDate, isDue } from '../utils/timeUtils';
 import { ARCHIVE_THRESHOLD } from '../constants';
 
@@ -16,6 +16,7 @@ interface VocabularySystemProps {
 export const VocabularySystem: React.FC<VocabularySystemProps> = ({ items, setItems }) => {
   const [isImporterOpen, setImporterOpen] = useState(false);
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
+  const processingRef = useRef(false);
 
   // Sorting Logic: Archived Last > Due Date (Ascending) > Check Count (Ascending)
   const sortedItems = useMemo(() => {
@@ -32,6 +33,62 @@ export const VocabularySystem: React.FC<VocabularySystemProps> = ({ items, setIt
       return a.checkCount - b.checkCount;
     });
   }, [items]);
+
+  // --- Background Batch Translation Logic ---
+  useEffect(() => {
+    const processBatch = async () => {
+      if (processingRef.current) return;
+
+      // 1. Identify candidates: Not translated, not currently loading, not archived
+      const candidates = items.filter(
+        item => !item.translation && !item.isLoadingTranslation && !item.isArchived
+      );
+
+      if (candidates.length === 0) return;
+
+      // 2. Buffer Pool: Take chunks of up to 100
+      const BATCH_SIZE = 100;
+      const batchItems = candidates.slice(0, BATCH_SIZE);
+      const batchWords = batchItems.map(i => i.content);
+      const batchIds = new Set(batchItems.map(i => i.id));
+
+      processingRef.current = true;
+
+      // 3. Mark these specific items as loading locally first to prevent double-fetching
+      setItems(prev => prev.map(item => 
+        batchIds.has(item.id) ? { ...item, isLoadingTranslation: true } : item
+      ));
+
+      // 4. Call API
+      // console.log(`[Batch] Translating ${batchWords.length} words...`);
+      const translationsMap = await translateBatch(batchWords);
+
+      // 5. Update Items
+      setItems(prev => prev.map(item => {
+        if (batchIds.has(item.id)) {
+          // If translation found in map, use it. If not, revert loading state (or keep generic error)
+          const translatedText = translationsMap[item.content];
+          return {
+            ...item,
+            translation: translatedText || item.translation, // Keep existing if failed, or update
+            isLoadingTranslation: false, // Done loading
+            // If API returned nothing for this word, it stays untranslated and might be picked up again later
+            // To prevent infinite loop on failed words, we might want to mark them as 'failed' internally, 
+            // but for now, let's just leave them. The user can manually flip to retry single.
+          };
+        }
+        return item;
+      }));
+
+      processingRef.current = false;
+    };
+
+    // Use a small timeout to debounce and allow UI to settle before firing network requests
+    // This allows multiple imports or state changes to coalesce
+    const timer = setTimeout(processBatch, 2000);
+    return () => clearTimeout(timer);
+  }, [items, setItems]);
+
 
   const handleImport = (text: string) => {
     const lines = text.split('\n');
@@ -67,9 +124,9 @@ export const VocabularySystem: React.FC<VocabularySystemProps> = ({ items, setIt
     setItems(prev => prev.map(item => {
       if (item.id !== id) return item;
 
-      // If flipping to back and no translation, fetch it
+      // If flipping to back and no translation, fetch it (Fallback for single fetch if batch hasn't got it yet)
       if (!item.isFlipped && !item.translation && !item.isLoadingTranslation) {
-        // Trigger async fetch but return loading state immediately
+        // Only trigger single fetch if not already loading (batch might be processing it)
         fetchTranslation(id, item.content);
         return { ...item, isLoadingTranslation: true, isFlipped: true };
       }
@@ -131,10 +188,19 @@ export const VocabularySystem: React.FC<VocabularySystemProps> = ({ items, setIt
     ));
   };
 
+  const pendingTranslationCount = items.filter(i => !i.translation && !i.isArchived).length;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-hand font-bold text-gray-800">单词纠错本</h2>
+        <div className="flex flex-col">
+            <h2 className="text-3xl font-hand font-bold text-gray-800">单词纠错本</h2>
+            {pendingTranslationCount > 0 && (
+                <span className="text-xs text-yellow-600 font-bold flex items-center gap-1 animate-pulse mt-1">
+                    <Zap size={12} /> 后台正在翻译 {pendingTranslationCount} 个单词...
+                </span>
+            )}
+        </div>
         <PaperButton onClick={() => setImporterOpen(true)}>+ 批量导入</PaperButton>
       </div>
 
@@ -208,7 +274,7 @@ export const VocabularySystem: React.FC<VocabularySystemProps> = ({ items, setIt
                   ) : (
                     <div className="prose w-full">
                       <p className="text-xl font-hand font-bold text-yellow-900 truncate">
-                        {item.translation}
+                        {item.translation || "点击尝试重新翻译"}
                       </p>
                     </div>
                   )}

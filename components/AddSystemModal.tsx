@@ -49,7 +49,7 @@ export const AddSystemModal: React.FC<AddSystemModalProps> = ({ isOpen, onClose,
         <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
           {/* Name Input */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">名称 (比如：恋爱纠错)</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">名称 (比如：健身纠错)</label>
             <input 
               className="w-full p-2 border-2 border-gray-300 rounded focus:border-black focus:ring-0 transition-colors"
               value={label}
