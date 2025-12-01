@@ -1,4 +1,4 @@
-import { SystemType } from './types';
+import { SystemType, ModelConfig } from './types';
 import { 
   BookOpen, Code, CheckSquare, Book, BrainCircuit, 
   Heart, Star, User, Music, Coffee, Zap, Smile, Gift, Flag
@@ -70,4 +70,18 @@ export const SYSTEM_CONFIG = {
 };
 
 export const EBBINGHAUS_INTERVALS = [1, 2, 4, 7, 15, 30]; 
-export const ARCHIVE_THRESHOLD = 3; 
+export const ARCHIVE_THRESHOLD = 3;
+
+export const LLM_PROVIDERS: ModelConfig[] = [
+  { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'google', modelId: 'gemini-2.5-flash' },
+  { id: 'gemini-pro', name: 'Gemini 2.5 Pro', provider: 'google', modelId: 'gemini-2.5-pro' },
+  { id: 'deepseek-v3', name: 'DeepSeek V3', provider: 'deepseek', modelId: 'deepseek-chat' },
+  { id: 'kimi', name: 'Kimi Moonshot', provider: 'moonshot', modelId: 'moonshot-v1-8k' },
+];
+
+export const LS_KEYS = {
+  DATA: 'correction-loop-data',
+  MODEL_CHOICE: 'correction-loop-model-choice',
+  API_KEY_DEEPSEEK: 'correction-loop-key-deepseek',
+  API_KEY_MOONSHOT: 'correction-loop-key-moonshot',
+};

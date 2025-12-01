@@ -52,3 +52,12 @@ export type AppState = {
   customSystemsConfig: SystemConfig[]; // List of user-created systems
   customData: Record<string, GenericItem[]>; // Map of system ID to items
 };
+
+export type LLMProvider = 'google' | 'deepseek' | 'moonshot';
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  provider: LLMProvider;
+  modelId: string;
+}
